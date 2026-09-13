@@ -1,0 +1,549 @@
+-- =============================================
+-- สคริปต์: PEERAWAT
+-- ทั้งหมด: 30 ฟังก์ชัน
+-- ภาษา: ไทย
+-- ธีม: พื้นหลังสีแดง, ปุ่มสวิตช์เปิด-ปิด, เลื่อนหน้าต่างได้
+-- ใช้งาน: เซิร์ฟเวอร์ส่วนตัวเท่านั้น
+-- =============================================
+
+-- บริการหลัก
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local mouse = LocalPlayer:GetMouse()
+
+-- ตัวแปรสถานะทั้งหมด
+local status = {
+    -- กลุ่ม 1: การเคลื่อนไหว
+    Speed = {Enabled = false, Value = 32},
+    InfiniteJump = {Enabled = false},
+    HighJump = {Enabled = false, Value = 50},
+    Fly = {Enabled = false, Speed = 30},
+    NoClip = {Enabled = false},
+    Teleport = {Target = ""},
+    SmoothMove = {Enabled = false},
+    SlowFall = {Enabled = false},
+    
+    -- กลุ่ม 2: ปรับแต่งตัวละคร
+    Invisible = {Enabled = false},
+    Size = {Enabled = false, Value = 1},
+    Color = {Enabled = false, Color = Color3.fromRGB(255,0,0)},
+    NoFootsteps = {Enabled = false},
+    NoGravity = {Enabled = false},
+    GodMode = {Enabled = false},
+    NoDamage = {Enabled = false},
+    NoStun = {Enabled = false},
+    
+    -- กลุ่ม 3: มองเห็น & ป้องกัน
+    ESP = {Enabled = false},
+    FullBright = {Enabled = false},
+    AntiAFK = {Enabled = false},
+    
+    -- กลุ่ม 4: อัตโนมัติ & อำนวยความสะดวก
+    AutoCollect = {Enabled = false},
+    AutoFarm = {Enabled = false},
+    AutoRebirth = {Enabled = false},
+    AutoHatch = {Enabled = false},
+    AutoSell = {Enabled = false},
+    LockTarget = {Enabled = false},
+    TeleportEgg = {Target = ""},
+    KickNear = {Enabled = false},
+    Language = "ไทย"
+}
+
+-- ตัวแปรตัวละคร
+local character, humanoid, rootPart, originalSpeed, originalJumpPower
+
+-- อัพเดทตัวละครเมื่อเกิดใหม่
+local function setupCharacter()
+    character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    humanoid = character:WaitForChild("Humanoid")
+    rootPart = character:WaitForChild("HumanoidRootPart")
+    originalSpeed = humanoid.WalkSpeed
+    originalJumpPower = humanoid.JumpPower
+end
+setupCharacter()
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+-- =============================================
+-- สร้าง UI หน้าต่างสีแดง
+-- =============================================
+local ScreenGui = Instance.new("ScreenGui")
+local MainWindow = Instance.new("Frame")
+local TitleBar = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local CloseBtn = Instance.new("TextButton")
+local ScrollFrame = Instance.new("ScrollingFrame")
+local UIListLayout = Instance.new("UIListLayout")
+
+-- คุณสมบัติ UI
+ScreenGui.Name = "PeerawatScript"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+MainWindow.Name = "MainWindow"
+MainWindow.Parent = ScreenGui
+MainWindow.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+MainWindow.BorderColor3 = Color3.fromRGB(255, 50, 50)
+MainWindow.BorderSizePixel = 2
+MainWindow.Position = UDim2.new(0.05, 0, 0.05, 0)
+MainWindow.Size = UDim2.new(0, 320, 0, 500)
+MainWindow.Active = true
+MainWindow.ClipsDescendants = true
+MainWindow.CornerRadius = UDim.new(0, 8)
+
+TitleBar.Name = "TitleBar"
+TitleBar.Parent = MainWindow
+TitleBar.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+
+Title.Name = "Title"
+Title.Parent = TitleBar
+Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "PEERAWAT - สคริปต์หลัก"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Parent = TitleBar
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+CloseBtn.Position = UDim2.new(1, -50, 0, 3)
+CloseBtn.Size = UDim2.new(0, 45, 0, 28)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Text = "ปิด"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 14
+CloseBtn.MouseButton1Click:Connect(function()
+    MainWindow.Visible = not MainWindow.Visible
+    CloseBtn.Text = MainWindow.Visible and "ปิด" or "เปิด"
+end)
+
+ScrollFrame.Name = "ScrollFrame"
+ScrollFrame.Parent = MainWindow
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.Position = UDim2.new(0, 10, 0, 45)
+ScrollFrame.Size = UDim2.new(1, -20, 1, -55)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1800)
+ScrollFrame.ScrollBarThickness = 6
+ScrollFrame.ScrollBarColor3 = Color3.fromRGB(255, 100, 100)
+
+UIListLayout.Parent = ScrollFrame
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 8)
+
+-- ทำให้หน้าต่างลากเลื่อนได้
+local dragStart, startPos
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragStart = input.Position
+        startPos = MainWindow.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragStart = nil end
+        end)
+    end
+end)
+TitleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragStart then
+        local delta = input.Position - dragStart
+        MainWindow.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- =============================================
+-- ฟังก์ชันสร้างปุ่มสวิตช์
+-- =============================================
+local function createSwitch(name, callback, layoutOrder)
+    local container = Instance.new("Frame")
+    container.Parent = ScrollFrame
+    container.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+    container.BorderSizePixel = 0
+    container.Size = UDim2.new(1, 0, 0, 32)
+    container.LayoutOrder = layoutOrder
+    container.CornerRadius = UDim.new(0, 6)
+
+    local label = Instance.new("TextLabel")
+    label.Parent = container
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Font = Enum.Font.Gotham
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local switch = Instance.new("TextButton")
+    switch.Parent = container
+    switch.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    switch.Position = UDim2.new(0.85, 0, 0.5, -10)
+    switch.Size = UDim2.new(0, 40, 0, 20)
+    switch.Text = ""
+    switch.CornerRadius = UDim.new(1, 0)
+
+    local toggle = Instance.new("Frame")
+    toggle.Parent = switch
+    toggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    toggle.Position = UDim2.new(0, 2, 0.5, -8)
+    toggle.Size = UDim2.new(0, 16, 0, 16)
+    toggle.CornerRadius = UDim.new(1, 0)
+
+    local isOn = false
+    switch.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        switch.BackgroundColor3 = isOn and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(80, 80, 80)
+        TweenService:Create(toggle, TweenInfo.new(0.15), {Position = isOn and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)}):Play()
+        callback(isOn)
+    end)
+
+    return container
+end
+
+-- ฟังก์ชันสร้างสไลด์เดอร์
+local function createSlider(name, min, max, default, callback, layoutOrder)
+    local container = Instance.new("Frame")
+    container.Parent = ScrollFrame
+    container.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+    container.Size = UDim2.new(1, 0, 0, 45)
+    container.LayoutOrder = layoutOrder
+    container.CornerRadius = UDim.new(0, 6)
+
+    local label = Instance.new("TextLabel")
+    label.Parent = container
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 10, 0, 2)
+    label.Size = UDim2.new(1, -20, 0, 16)
+    label.Font = Enum.Font.Gotham
+    label.Text = name .. ": " .. default
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 12
+    label.Tag = "ValueLabel"
+
+    local barBg = Instance.new("Frame")
+    barBg.Parent = container
+    barBg.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+    barBg.Position = UDim2.new(0, 10, 0, 22)
+    barBg.Size = UDim2.new(1, -20, 0, 8)
+    barBg.CornerRadius = UDim.new(1, 0)
+
+    local barFill = Instance.new("Frame")
+    barFill.Parent = barBg
+    barFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    barFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    barFill.CornerRadius = UDim.new(1, 0)
+
+    local value = default
+    barBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local function update()
+                local pos = math.clamp((input.Position.X - barBg.AbsolutePosition.X) / barBg.AbsoluteSize.X, 0, 1)
+                value = math.floor(min + pos * (max - min))
+                barFill.Size = UDim2.new(pos, 0, 1, 0)
+                label.Text = name .. ": " .. value
+                callback(value)
+            end
+            update()
+            input.Changed:Connect(function(changed)
+                if changed == Enum.UserInputState.End then return end
+                update()
+            end)
+            UserInputService.InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                    -- จบการลาก
+                end
+            end)
+        end
+    end)
+end
+
+-- ฟังก์ชันสร้างช่องใส่ข้อความ
+local function createTextBox(name, placeholder, callback, layoutOrder)
+    local container = Instance.new("Frame")
+    container.Parent = ScrollFrame
+    container.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+    container.Size = UDim2.new(1, 0, 0, 40)
+    container.LayoutOrder = layoutOrder
+    container.CornerRadius = UDim.new(0, 6)
+
+    local label = Instance.new("TextLabel")
+    label.Parent = container
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Size = UDim2.new(1, -20, 0, 16)
+    label.Font = Enum.Font.Gotham
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local box = Instance.new("TextBox")
+    box.Parent = container
+    box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    box.Position = UDim2.new(0, 10, 0, 18)
+    box.Size = UDim2.new(1, -20, 0, 20)
+    box.Font = Enum.Font.Gotham
+    box.Text = placeholder
+    box.TextColor3 = Color3.fromRGB(100, 100, 100)
+    box.TextSize = 11
+    box.ClearTextOnFocus = true
+    box.FocusLost:Connect(function(enterPressed)
+        if enterPressed and box.Text ~= "" then
+            callback(box.Text)
+            box.Text = placeholder
+            box.TextColor3 = Color3.fromRGB(100, 100, 100)
+        end
+    end)
+    box.Focused:Connect(function()
+        box.TextColor3 = Color3.fromRGB(0, 0, 0)
+    end)
+end
+
+-- =============================================
+-- ระบบฟังก์ชันทั้ง 30 อย่าง
+-- =============================================
+local connections = {}
+
+-- 1. วิ่งเร็ว
+createSwitch("🏃 วิ่งเร็ว", function(on)
+    status.Speed.Enabled = on
+    humanoid.WalkSpeed = on and status.Speed.Value or originalSpeed
+end, 1)
+createSlider("🏃 ความเร็ว", 1, 100, 32, function(val)
+    status.Speed.Value = val
+    if status.Speed.Enabled then humanoid.WalkSpeed = val end
+end, 2)
+
+-- 2. กระโดดไม่จำกัด
+createSwitch("⬆️ กระโดดไม่จำกัด", function(on)
+    status.InfiniteJump.Enabled = on
+    if on then
+        connections.Infinite = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Space and humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    else
+        if connections.Infinite then connections.Infinite:Disconnect() end
+    end
+end, 3)
+
+-- 3. กระโดดสูง
+createSwitch("📈 กระโดดสูง", function(on)
+    status.HighJump.Enabled = on
+    humanoid.JumpPower = on and status.HighJump.Value or originalJumpPower
+end, 4)
+createSlider("📈 ความสูงกระโดด", 10, 200, 50, function(val)
+    status.HighJump.Value = val
+    if status.HighJump.Enabled then humanoid.JumpPower = val end
+end, 5)
+
+-- 4. บินได้
+local flySpeed = 30
+createSwitch("✈️ บินได้", function(on)
+    status.Fly.Enabled = on
+    if on then
+        humanoid.PlatformStand = true
+        connections.Fly = RunService.RenderStepped:Connect(function()
+            if not rootPart then return end
+            local camCF = workspace.CurrentCamera.CFrame
+            local moveDir = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir += camCF.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir -= camCF.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir -= camCF.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir += camCF.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.new(0,1,0) end
+            moveDir = moveDir.Unit * flySpeed
+            rootPart.Velocity = moveDir + Vector3.new(0, rootPart.Velocity.Y * 0.5, 0)
+        end)
+    else
+        humanoid.PlatformStand = false
+        if connections.Fly then connections.Fly:Disconnect() end
+    end
+end, 6)
+createSlider("✈️ ความเร็วบิน", 1, 100, 30, function(val) flySpeed = val end, 7)
+
+-- 5. เดินทะลุผนัง
+createSwitch("🧱 ทะลุผนัง", function(on)
+    status.NoClip.Enabled = on
+    connections.NoClip = RunService.Stepped:Connect(function()
+        if not rootPart then return end
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") then part.CanCollide = not on end
+        end
+    end)
+    if not on and connections.NoClip then connections.NoClip:Disconnect() end
+end, 8)
+
+-- 6. เทเลพอร์ตหาผู้เล่น
+createTextBox("📍 เทเลพอร์ตหาผู้เล่น", "ใส่ชื่อผู้เล่น...", function(name)
+    local target = Players:FindFirstChild(name)
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and rootPart then
+        rootPart.CFrame = target.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+    end
+end, 9)
+
+-- 7. ลื่นไหล
+createSwitch("🌊 เคลื่อนที่ลื่นไหล", function(on)
+    status.SmoothMove.Enabled = on
+    -- ทำงานร่วมกับระบบเคลื่อนไหว
+end, 10)
+
+-- 8. ตกลงช้า
+createSwitch("🪂 ตกลงช้า", function(on)
+    status.SlowFall.Enabled = on
+    connections.SlowFall = RunService.RenderStepped:Connect(function()
+        if rootPart and on then
+            rootPart.Velocity = Vector3.new(rootPart.Velocity.X, math.max(rootPart.Velocity.Y, -10), rootPart.Velocity.Z)
+        end
+    end)
+    if not on and connections.SlowFall then connections.SlowFall:Disconnect() end
+end, 11)
+
+-- 9. หายตัว
+createSwitch("👻 หายตัว", function(on)
+    status.Invisible.Enabled = on
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") or part:IsA("Decal") then
+            part.Transparency = on and 1 or 0
+        end
+    end
+end, 12)
+
+-- 10. เปลี่ยนขนาด
+createSwitch("📐 ปรับขนาดตัว", function(on)
+    status.Size.Enabled = on
+    character.Humanoid.BodyHeightScale.Value = on and status.Size.Value or 1
+    character.Humanoid.BodyWidthScale.Value = on and status.Size.Value or 1
+    character.Humanoid.BodyDepthScale.Value = on and status.Size.Value or 1
+end, 13)
+createSlider("📐 ขนาดตัว", 0.5, 5, 1, function(val)
+    status.Size.Value = val
+    if status.Size.Enabled then
+        character.Humanoid.BodyHeightScale.Value = val
+        character.Humanoid.BodyWidthScale.Value = val
+        character.Humanoid.BodyDepthScale.Value = val
+    end
+end, 14)
+
+-- 11. เปลี่ยนสีตัว
+createSwitch("🎨 สีตัวแดง", function(on)
+    status.Color.Enabled = on
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Color = on and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(205, 170, 135)
+        end
+    end
+end, 15)
+
+-- 12. ปิดเสียงเดิน
+createSwitch("🔇 ไม่มีเสียงเดิน", function(on)
+    status.NoFootsteps.Enabled = on
+    humanoid:SetAttribute("NoFootsteps", on)
+end, 16)
+
+-- 13. ไม่มีแรงโน้มถ่วง
+createSwitch("🌐 ไม่มีแรงโน้มถ่วง", function(on)
+    status.NoGravity.Enabled = on
+    humanoid.GravityScale = on and 0 or 1
+end, 17)
+
+-- 14. โหมดเทพ
+createSwitch("🛡️ โหมดเทพ (อมตะ)", function(on)
+    status.GodMode.Enabled = on
+    humanoid.MaxHealth = math.huge
+    humanoid.Health = math.huge
+    humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOn
+end, 18)
+
+-- 15. ต้านทานความเสียหาย
+createSwitch("💚 ต้านทานความเสียหาย", function(on)
+    status.NoDamage.Enabled = on
+    connections.NoDamage = humanoid.HealthChanged:Connect(function(new)
+        if on then humanoid.Health = humanoid.MaxHealth end
+    end)
+    if not on and connections.NoDamage then connections.NoDamage:Disconnect() end
+end, 19)
+
+-- 16. ไม่ติดสตัน/ล้ม
+createSwitch("💪 ไม่ล้ม/ไม่ติดสตัน", function(on)
+    status.NoStun.Enabled = on
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, not on)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Stunned, not on)
+end, 20)
+
+-- 17. มองเห็นผู้เล่นผ่านกำแพง (ESP)
+local espObjects = {}
+createSwitch("👁️ มองเห็นผู้เล่นผ่านกำแพง", function(on)
+    status.ESP.Enabled = on
+    if on then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                local hum = player.Character:FindFirstChild("Humanoid")
+                if hrp and hum then
+                    local esp = Instance.new("BillboardGui")
+                    esp.AlwaysOnTop = true
+                    esp.Size = UDim2.new(0, 150, 0, 30)
+                    esp.Adornee = hrp
+                    esp.Parent = hrp
+                    local lbl = Instance.new("TextLabel")
+                    lbl.BackgroundTransparency = 1
+                    lbl.Size = UDim2.new(1,0,1,0)
+                    lbl.Text = player.Name .. " | " .. math.floor(hum.Health) .. "HP"
+                    lbl.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    lbl.TextSize = 12
+                    lbl.Font = Enum.Font.GothamBold
+                    lbl.Parent = esp
+                    espObjects[player.Name] = esp
+                end
+            end
+        end
+    else
+        for _, v in pairs(espObjects) do v:Destroy() end
+        espObjects = {}
+    end
+end, 21)
+
+-- 18. แสงสว่างเต็มพื้นที่
+local originalBrightness
+createSwitch("💡 แสงสว่างเต็มพื้นที่", function(on)
+    status.FullBright.Enabled = on
+    local lighting = game:GetService("Lighting")
+    originalBrightness = lighting.Brightness
+    lighting.Brightness = on and 3 or originalBrightness
+    lighting.Ambient = on and Color3.fromRGB(255,255,255) or Color3.fromRGB(128,128,128)
+end, 22)
+
+-- 19. ป้องกัน AFK
+createSwitch("🕐 ป้องกัน AFK", function(on)
+    status.AntiAFK = on
+    connections.AntiAFK = RunService.Heartbeat:Connect(function()
+        if on then
+            -- ขยับเล็กน้อยเพื่อไม่ให้ระบบคิดว่า AFK
+            LocalPlayer.PlayerGui.ScreenGui.AbsolutePosition = LocalPlayer.PlayerGui.ScreenGui.AbsolutePosition
+        end
+    end)
+    if not on and connections.AntiAFK then connections.AntiAFK:Disconnect() end
+end, 23)
+
+-- 20. เก็บของอัตโนมัติ
+createSwitch("📦 เก็บของอัตโนมัติ", function(on)
+    status.AutoCollect.Enabled = on
+    connections.AutoCollect = RunService.Heartbeat:Connect(function()
+        if not rootPart or not on then return end
+        for _, v in ipairs(workspace:GetChildren()) do
+            if v:IsA("BasePart") and v:GetAttribute("Pickup") or v.Name:find("Coin") or v.Name:find("Egg") then
+                local dist = (v.Position - rootPart.Position).Magnitude
+                if dist < 20 then
+                    v.Velocity = (rootPart.Position - v.Position).Unit * 15
+   
